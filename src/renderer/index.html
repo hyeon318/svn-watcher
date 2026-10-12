@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:"
+    />
+    <title>SVN Watcher</title>
+    <link rel="stylesheet" href="styles/app.css" />
+  </head>
+  <body class="overflow-hidden">
+    <div class="flex h-full">
+      <!-- 사이드바 -->
+      <aside class="flex w-52 shrink-0 flex-col bg-slate-900 px-3 py-4">
+        <div class="mb-6 flex items-center gap-2 px-2">
+          <img src="../../assets/icon.png" alt="" class="h-7 w-7" />
+          <div>
+            <div class="text-sm font-semibold text-white">SVN Watcher</div>
+            <div id="app-version" class="text-[13px] text-slate-500"></div>
+          </div>
+        </div>
+        <nav class="space-y-1">
+          <button class="nav-btn" data-tab="repos">
+            <span class="w-4 text-center">▤</span> 저장소
+            <span id="nav-repo-count" class="ml-auto text-[13px] text-slate-500"></span>
+          </button>
+          <button class="nav-btn" data-tab="history">
+            <span class="w-4 text-center">◷</span> 최근 커밋
+            <span id="nav-unseen" class="chip ml-auto hidden bg-emerald-500 text-white"></span>
+          </button>
+          <button class="nav-btn" data-tab="settings"><span class="w-4 text-center">⚙</span> 설정</button>
+        </nav>
+        <div class="mt-auto space-y-2 px-2 text-[13px] leading-relaxed text-slate-500">
+          <div id="side-svn"></div>
+          <div id="side-mode"></div>
+        </div>
+      </aside>
+
+      <main class="min-w-0 flex-1">
+        <!-- 저장소 탭 -->
+        <section id="tab-repos" class="tab hidden h-full">
+          <div class="flex h-full">
+            <!-- 최소폭 360 = 헤더의 제목 + 전체 동기화 + 새 저장소 버튼이 한 줄에 들어가는 폭 -->
+            <div class="flex min-w-[360px] flex-1 flex-col">
+              <header class="flex flex-nowrap items-center gap-2 border-b border-slate-200 bg-white px-5 py-3">
+                <h1 class="page-title">저장소</h1>
+                <span class="min-w-0 truncate text-xs text-slate-400">변경이 있을 때만 로그를 조회합니다 (리비전 핑 → svn log)</span>
+                <div class="ml-auto flex shrink-0 gap-2">
+                  <button id="btn-sync-all" class="btn btn-sm min-w-[120px]">⟳ 전체 동기화</button>
+                  <button id="btn-new" class="btn btn-sm btn-primary min-w-[110px]">＋ 새 저장소</button>
+                </div>
+              </header>
+              <div class="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-5 py-2">
+                <label for="repo-sort" class="whitespace-nowrap text-xs text-slate-500">정렬</label>
+                <select id="repo-sort" class="input h-8 w-44 shrink-0 py-0 text-xs">
+                  <option value="created">등록순</option>
+                  <option value="name">이름순</option>
+                  <option value="commit">최근 커밋순</option>
+                  <option value="attention">확인 필요순</option>
+                </select>
+                <button id="btn-fav-only" class="btn btn-sm" type="button" title="즐겨찾기한 저장소만 보기">☆ 즐겨찾기만</button>
+                <span id="repo-count" class="ml-auto whitespace-nowrap text-xs text-slate-400"></span>
+              </div>
+              <div id="repos-notice" class="notice mx-5 mt-4 hidden"></div>
+              <div id="repo-list" class="flex-1 space-y-2 overflow-y-auto p-5"></div>
+            </div>
+
+            <!-- 추가/편집 폼 -->
+            <aside class="w-[440px] min-w-[340px] overflow-y-auto border-l border-slate-200 bg-white">
+              <form id="repo-form" class="space-y-4 p-5" autocomplete="off">
+                <div class="flex items-center">
+                  <h2 id="form-title" class="text-sm font-semibold">새 저장소 추가</h2>
+                  <button type="button" id="btn-form-cancel" class="ml-auto hidden text-xs text-slate-400 hover:text-slate-600">
+                    편집 취소
+                  </button>
+                </div>
+                <input type="hidden" name="id" />
+
+                <div>
+                  <label class="label" for="f-name">Repository Name</label>
+                  <input id="f-name" name="name" class="input" placeholder="예: My Project Server" required />
+                </div>
+
+                <div>
+                  <label class="label" for="f-url">SVN URL</label>
+                  <input id="f-url" name="url" class="input font-mono text-xs" placeholder="https://svn.example.com/repos/project/trunk" required />
+                  <p class="hint">하위 경로까지 지정하면 그 경로의 변경만 감지합니다.</p>
+                </div>
+
+                <div>
+                  <label class="label" for="f-interval">감시 주기</label>
+                  <div class="flex gap-1.5">
+                    <input id="f-interval" name="intervalValue" type="number" min="1" class="input h-9 w-24 shrink-0" value="30" required />
+                    <select name="intervalUnit" class="input h-9 w-24 shrink-0">
+                      <option value="1">분</option>
+                      <option value="60">시간</option>
+                      <option value="1440">일</option>
+                    </select>
+                  </div>
+                  <div id="presets" class="mt-2 flex flex-wrap gap-1.5">
+                    <button type="button" class="preset" data-min="30">30분</button>
+                    <button type="button" class="preset" data-min="60">1시간</button>
+                    <button type="button" class="preset" data-min="1440">24시간</button>
+                    <button type="button" class="preset" data-min="4320">3일</button>
+                    <button type="button" class="preset" data-min="7200">5일</button>
+                    <button type="button" class="preset" data-min="10080">7일</button>
+                  </div>
+                  <p class="hint">1분 ~ 7일</p>
+                </div>
+
+                <fieldset class="rounded-md border border-slate-200 p-3">
+                  <legend class="px-1 text-xs font-medium text-slate-600">인증</legend>
+                  <div class="flex gap-4 text-[15px]">
+                    <label class="flex items-center gap-1.5"><input type="radio" name="authMode" value="cached" checked /> 저장된 인증 사용</label>
+                    <label class="flex items-center gap-1.5"><input type="radio" name="authMode" value="app" /> 앱에서 입력</label>
+                  </div>
+                  <p id="auth-cached-hint" class="hint">TortoiseSVN / svn 에 저장된 계정을 그대로 사용합니다.</p>
+                  <div id="auth-app" class="mt-3 hidden space-y-2">
+                    <input name="username" class="input" placeholder="사용자 이름" />
+                    <input name="password" type="password" class="input" placeholder="비밀번호" />
+                    <p id="pw-hint" class="hint">Windows 사용자 계정으로 암호화되어 저장됩니다.</p>
+                  </div>
+                  <label class="mt-3 flex items-center gap-1.5 text-[15px]">
+                    <input type="checkbox" name="trustCert" /> 서버 인증서 오류 무시 (사설 인증서)
+                  </label>
+                </fieldset>
+
+                <fieldset class="rounded-md border border-slate-200 p-3">
+                  <legend class="px-1 text-xs font-medium text-slate-600">작업 복사본 (선택)</legend>
+                  <div class="flex gap-2">
+                    <input name="localPath" class="input text-xs" placeholder="C:\SVN\project" />
+                    <button type="button" id="btn-browse" class="btn btn-sm shrink-0">찾기</button>
+                  </div>
+                  <p class="hint">지정하면 트레이/목록에서 svn update 를 실행할 수 있습니다.</p>
+                  <label class="mt-2 flex items-center gap-1.5 text-[15px]">
+                    <input type="checkbox" name="autoUpdate" /> 새 커밋 감지 시 자동 update
+                  </label>
+                </fieldset>
+
+                <details class="rounded-md border border-slate-200 p-3">
+                  <summary class="cursor-pointer text-xs font-medium text-slate-600">알림 필터</summary>
+                  <div class="mt-3 space-y-3">
+                    <div>
+                      <label class="label">제외할 작성자 (쉼표 구분)</label>
+                      <input name="excludeAuthors" class="input" placeholder="내 계정, buildbot" />
+                    </div>
+                    <div>
+                      <label class="label">이 경로가 포함된 커밋만 알림 (줄 단위)</label>
+                      <textarea name="includePaths" rows="3" class="input font-mono text-xs" placeholder="/trunk/Server&#10;/trunk/Docs"></textarea>
+                      <p class="hint">저장소 루트 기준 경로 접두사. 비우면 전부 알림.</p>
+                    </div>
+                  </div>
+                </details>
+
+                <div id="form-notice" class="notice hidden"></div>
+
+                <div class="flex gap-2 pt-1">
+                  <button type="button" id="btn-test" class="btn">연결 테스트</button>
+                  <button type="submit" id="btn-save" class="btn btn-primary ml-auto">저장</button>
+                </div>
+              </form>
+            </aside>
+          </div>
+        </section>
+
+        <!-- 최근 커밋 탭 -->
+        <section id="tab-history" class="tab hidden h-full">
+          <div class="flex h-full flex-col">
+            <header class="flex flex-nowrap items-center gap-2 border-b border-slate-200 bg-white px-5 py-3">
+              <h1 class="page-title">최근 커밋</h1>
+              <div id="h-repo-wrap" class="relative ml-4 shrink-0">
+                <button id="h-repo-btn" type="button" class="input flex h-9 w-56 items-center justify-between gap-2 text-left">
+                  <span id="h-repo-label" class="truncate">전체 저장소</span>
+                  <span class="shrink-0 text-xs text-slate-400">▾</span>
+                </button>
+                <div id="h-repo-menu" class="absolute left-0 z-20 mt-1 hidden w-80 rounded-md border border-slate-200 bg-white shadow-lg"></div>
+              </div>
+              <input id="h-search" class="input w-64 min-w-[160px] shrink" placeholder="메시지 / 작성자 / 파일 검색" />
+              <button id="btn-clear-history" class="btn btn-sm btn-danger ml-auto">기록 지우기</button>
+            </header>
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-slate-200 bg-white px-5 py-2 text-xs text-slate-500">
+              <span id="h-count" class="whitespace-nowrap"></span>
+              <span id="h-filters" class="flex min-w-0 flex-wrap gap-1.5"></span>
+              <button id="h-reset" type="button" class="ml-auto hidden whitespace-nowrap text-blue-600 hover:underline">필터 초기화</button>
+            </div>
+            <div id="history-notice" class="notice mx-5 mt-4 hidden"></div>
+            <div id="history-list" class="flex-1 space-y-2 overflow-y-auto p-5"></div>
+          </div>
+        </section>
+
+        <!-- 설정 탭 -->
+        <section id="tab-settings" class="tab hidden h-full overflow-y-auto">
+          <header class="border-b border-slate-200 bg-white px-5 py-3">
+            <h1 class="page-title">설정</h1>
+          </header>
+          <form id="settings-form" class="max-w-2xl space-y-5 p-5">
+            <div id="settings-notice" class="notice hidden"></div>
+            <div class="card p-4">
+              <h3 class="mb-3 text-sm font-semibold">SVN 명령줄 도구</h3>
+              <div id="svn-status" class="mb-3 rounded-md px-3 py-2 text-xs"></div>
+              <label class="label">svn.exe 경로 (비우면 자동 감지)</label>
+              <div class="flex gap-2">
+                <input name="svnPath" class="input text-xs" placeholder="C:\Program Files\TortoiseSVN\bin\svn.exe" />
+                <button type="button" id="btn-pick-svn" class="btn btn-sm shrink-0">찾기</button>
+                <button type="button" id="btn-check-svn" class="btn btn-sm shrink-0">다시 확인</button>
+              </div>
+              <p class="hint">TortoiseSVN 설치 시 "command line client tools" 를 선택해야 svn.exe 가 설치됩니다.</p>
+            </div>
+
+            <div class="card space-y-3 p-4">
+              <h3 class="text-sm font-semibold">알림</h3>
+              <div>
+                <label class="label">알림 클릭 시</label>
+                <select name="clickAction" class="input w-72">
+                  <option value="history">최근 커밋 화면 열기</option>
+                  <option value="tortoise">TortoiseSVN 로그 창 열기</option>
+                </select>
+              </div>
+              <label class="flex items-center gap-1.5"><input type="checkbox" name="silent" /> 알림 소리 끄기</label>
+              <label class="flex items-center gap-1.5"><input type="checkbox" name="notifyErrors" /> 연결 실패 시 알림 (상태가 바뀔 때 1회)</label>
+              <div class="flex items-center gap-3 rounded-md bg-slate-50 px-3 py-2">
+                <span id="dnd-status" class="text-xs text-slate-600"></span>
+                <button type="button" id="btn-dnd-off" class="btn btn-sm ml-auto">방해 금지 해제</button>
+              </div>
+            </div>
+
+            <div class="card space-y-3 p-4">
+              <h3 class="text-sm font-semibold">동작</h3>
+              <label class="flex items-center gap-1.5"><input type="checkbox" name="launchAtLogin" /> Windows 로그인 시 자동 실행</label>
+              <label class="flex items-center gap-1.5"><input type="checkbox" name="globalPaused" /> 전체 일시정지</label>
+              <div class="grid grid-cols-3 gap-3">
+                <div>
+                  <label class="label">1회 최대 로그 조회 수</label>
+                  <input name="maxLogEntries" type="number" min="1" max="500" class="input" />
+                </div>
+                <div>
+                  <label class="label">svn 응답 제한 (초)</label>
+                  <input name="timeoutSec" type="number" min="5" max="600" class="input" />
+                </div>
+                <div>
+                  <label class="label">커밋 기록 보관 수</label>
+                  <input name="historyLimit" type="number" min="10" max="5000" class="input" />
+                </div>
+              </div>
+              <p class="hint">오류가 나면 다음 확인 간격을 2배씩 늘려(최대 60분) 서버 부하를 막습니다.</p>
+            </div>
+
+            <div class="card p-4">
+              <h3 class="mb-3 text-sm font-semibold">저장소 목록 백업</h3>
+              <div class="flex gap-2">
+                <button type="button" id="btn-export" class="btn btn-sm">내보내기 (JSON)</button>
+                <button type="button" id="btn-import" class="btn btn-sm">가져오기</button>
+              </div>
+              <p class="hint">비밀번호는 내보내지 않습니다. 앱 인증 저장소는 가져온 뒤 일시정지 상태가 되며 비밀번호를 다시 입력해야 합니다.</p>
+            </div>
+
+            <div class="flex justify-end">
+              <button type="submit" class="btn btn-primary">설정 저장</button>
+            </div>
+          </form>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

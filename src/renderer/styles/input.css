@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body {
+    @apply h-full bg-slate-50 text-slate-800 antialiased;
+    font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
+    font-size: 15px;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full border-2 border-solid border-transparent bg-slate-300 bg-clip-padding;
+  }
+}
+
+@layer components {
+  .nav-btn {
+    @apply flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-slate-300 transition hover:bg-slate-800 hover:text-white;
+  }
+  .nav-btn.active {
+    @apply bg-slate-800 text-white;
+  }
+  .input {
+    @apply w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-[15px] outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-400;
+  }
+  .label {
+    @apply mb-1 block whitespace-nowrap text-xs font-medium text-slate-600;
+  }
+  .hint {
+    @apply mt-1 text-[13px] text-slate-400;
+  }
+  .btn {
+    @apply inline-flex min-w-[64px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-md border border-slate-300 bg-white px-3 py-1.5 text-[15px] font-medium text-slate-700 transition hover:bg-slate-50 active:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply border-blue-600 bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800;
+  }
+  .btn-danger {
+    @apply border-red-200 text-red-600 hover:bg-red-50;
+  }
+  .btn-sm {
+    @apply min-w-[52px] px-2 py-1 text-xs;
+  }
+  .chip {
+    @apply inline-flex shrink-0 items-center whitespace-nowrap rounded px-1.5 py-0.5 text-[13px] font-medium;
+  }
+  .page-title {
+    @apply min-w-max shrink-0 whitespace-nowrap text-base font-semibold;
+  }
+  /* 화면 안 안내 문구: 길면 다음 줄로 넘김 */
+  .notice {
+    @apply cursor-default whitespace-pre-line break-words rounded-md px-3 py-2 text-xs;
+  }
+  .card {
+    @apply rounded-lg border border-slate-200 bg-white;
+  }
+  .preset {
+    @apply inline-flex h-9 min-w-[52px] shrink-0 items-center justify-center whitespace-nowrap rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-600 hover:border-blue-400 hover:text-blue-600;
+  }
+  .preset.on {
+    @apply border-blue-500 bg-blue-50 text-blue-700;
+  }
+}
+
+/* 폼 컨트롤은 브라우저 기본 폰트 대신 본문 폰트(맑은 고딕) 사용 */
+input,
+select,
+textarea,
+button {
+  font-family: inherit;
+}

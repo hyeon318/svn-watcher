@@ -1,0 +1,7 @@
+node_modules/
+release/
+# npm run build:css 로 생성
+src/renderer/styles/app.css
+*.log
+.DS_Store
+Thumbs.db
